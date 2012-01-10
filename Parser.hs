@@ -1,36 +1,39 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Parser where
 
-import qualified Data.Attoparsec as A
-import qualified Data.AttoLisp as L
-import Data.Attoparsec.Number (Number (I, D))
-import Control.Monad.State.Strict
+import Text.ParserCombinators.Parsec
 import Control.Monad
-import qualified Data.Text as T
-import qualified Data.Text.Internal as HT
 
-newtype Identifier = Identifier HT.Text deriving (Show, Read)
+data JelloVal =
+  Symbol String |
+  Integer Integer |
+  List [JelloVal] deriving (Show, Read)
 
-data JelloTree =
-  JelloNote Identifier [JelloTree] |
-  JelloFunc Identifier [JelloTree] |
-  JelloSymbol HT.Text |
-  JelloString HT.Text |
-  JelloInteger Integer |
-  JelloList [JelloTree] deriving (Show, Read)
+symbol = do
+    first <- letter <|> punc
+    rest <- many $ letter <|> punc <|> digit
+    return $ Symbol $ first : rest
 
-tokenize = A.eitherResult . A.parse L.lisp
+int = liftM (Integer . read) $ many1 digit
 
-lispToSyntaxTree :: L.Lisp -> Either String JelloTree
-lispToSyntaxTree (L.List ((L.Symbol val):vals))
-  | (T.head val) == ':' = do
-    rest <- mapM lispToSyntaxTree vals
-    return $ JelloNote (Identifier val) rest
-  | otherwise = do
-    rest <- mapM lispToSyntaxTree vals
-    return $ JelloFunc (Identifier val) rest
-lispToSyntaxTree (L.Symbol sym) = Right $ JelloSymbol sym
-lispToSyntaxTree (L.String str) = Right $ JelloString str
-lispToSyntaxTree (L.Number (I int)) = Right $ JelloInteger int
-lispToSyntaxTree (L.Number (D _)) = Left "no support for non-integer numbers yet!"
-lispToSyntaxTree (L.DotList _ _) = Left "dotted lists aren't used in jello."
+list = do
+    char '('
+    spaces
+    vals <- parseJello `sepBy` spaces
+    spaces
+    char ')'
+    return $ List vals
+
+parseJello :: Parser JelloVal
+parseJello = symbol
+         <|> int
+         <|> list
+
+-- really only for debugging.  and puns.
+airyParse :: String -> JelloVal
+airyParse input =
+    case parse parseJello "jello" input of
+        Right val -> val
+        Left msg -> error $ show msg
+
+punc = oneOf "*+-/"
