@@ -3,11 +3,19 @@ module Parser where
 
 import Text.ParserCombinators.Parsec
 import Control.Monad
+import Data.List
 
 data JelloVal =
+  Func ([JelloVal] -> JelloVal) |
   Symbol String |
   Integer Integer |
-  List [JelloVal] deriving (Show, Read)
+  List [JelloVal]
+
+instance Show JelloVal where
+    show (Func _) = "(* -> *)"
+    show (Symbol str) = "Symbol " ++ str
+    show (Integer int) = "Integer " ++ show int
+    show (List xs) = "[" ++ (intercalate ", " $ map show xs) ++ "]"
 
 symbol = do
     first <- letter <|> punc
